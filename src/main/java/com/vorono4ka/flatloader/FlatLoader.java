@@ -194,7 +194,7 @@ public class FlatLoader {
     private <T> T deserializeField0(Field field, Class<?> type) {
         if (type.isAssignableFrom(ArrayList.class)) {
             //noinspection unchecked
-            return (T) deserializeCollection(field.getGenericType(), field.getType());
+            return (T) deserializeCollection(field.getGenericType(), field.getType(), field.getDeclaredAnnotation(CustomStructureSize.class));
         }
 
         return deserializeByType(type, field.getDeclaredAnnotation(FlatType.class));
@@ -220,7 +220,7 @@ public class FlatLoader {
     private <T> T deserializeParameter0(Parameter parameter, Class<?> type) {
         if (type.isAssignableFrom(ArrayList.class)) {
             //noinspection unchecked
-            return (T) deserializeCollection(type, type);
+            return (T) deserializeCollection(type, type, parameter.getDeclaredAnnotation(CustomStructureSize.class));
         }
 
         return deserializeByType(type, parameter.getDeclaredAnnotation(FlatType.class));
@@ -246,7 +246,7 @@ public class FlatLoader {
         return (T) deserializeClass(type);
     }
 
-    private List<?> deserializeCollection(Type type, Class<?> aClass) {
+    private List<?> deserializeCollection(Type type, Class<?> aClass, CustomStructureSize customStructureSize) {
         ParameterizedType listType = (ParameterizedType) type;
         Class<?> listElementClass = (Class<?>) listType.getActualTypeArguments()[0];
 
@@ -260,6 +260,9 @@ public class FlatLoader {
         }
 
         int count = stream.readInt32();
+        if (customStructureSize != null) {
+            count /= customStructureSize.value();
+        }
 
         for (int i = 0; i < count; i++) {
             Object object;
