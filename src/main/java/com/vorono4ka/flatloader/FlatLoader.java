@@ -164,8 +164,6 @@ public class FlatLoader {
     }
 
     private <T> T deserializeField(Field field) {
-        System.out.println(field);
-
         Class<?> type = field.getType();
 
         FlatChunk flatChunkAnnotation = field.getDeclaredAnnotation(FlatChunk.class);
