@@ -6,6 +6,7 @@ import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;
 import com.vorono4ka.flatloader.swf.FloatRect;
 import com.vorono4ka.flatloader.swf.MovieClipFrameElement;
+import com.vorono4ka.flatloader.swf.ScMatrixBank;
 import com.vorono4ka.flatloader.swf.ShapePoint;
 
 import java.util.ArrayList;
@@ -26,4 +27,7 @@ public class ResourceRoot {
     @VTableField(5)
     @CustomStructureSize(10)
     private ArrayList<ShapePoint> shapePoints;
+    @FlatReference
+    @VTableField(6)
+    private ArrayList<ScMatrixBank> matrixBanks;
 }
