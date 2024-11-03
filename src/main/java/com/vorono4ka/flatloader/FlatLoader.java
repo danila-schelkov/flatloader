@@ -93,7 +93,7 @@ public class FlatLoader {
                 handleField(instance, declaredField);
             }
 
-            if (structureSize != 0) {
+            if (vTable != null || structureSize != 0) {
                 stream.seek(structureStartPosition + structureSize);
             }
         } catch (InstantiationException | IllegalAccessException |
@@ -137,7 +137,7 @@ public class FlatLoader {
             parameters[i++] = deserializeParameter(parameter);
         }
 
-        if (structureSize != 0) {
+        if (vTable != null || structureSize != 0) {
             stream.seek(structureStartPosition + structureSize);
         }
 
