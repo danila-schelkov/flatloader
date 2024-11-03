@@ -21,52 +21,6 @@ public class FlatLoader {
         this.stream = stream;
     }
 
-    private static <T> Constructor<T> getSuitableRecordConstructor(Class<T> serializableRecord) {
-        Constructor<?>[] declaredConstructors = serializableRecord.getDeclaredConstructors();
-        for (Constructor<?> declaredConstructor : declaredConstructors) {
-            //noinspection unchecked
-            return (Constructor<T>) declaredConstructor;
-        }
-
-        return null;
-    }
-
-    private static boolean isPrimitive(Class<?> serializationClass) {
-        return serializationClass.isPrimitive() || isPrimitiveNumber(serializationClass) || serializationClass == Boolean.class;
-    }
-
-    private static boolean isPrimitiveNumber(Class<?> serializationClass) {
-        return serializationClass == Long.class || serializationClass == Integer.class || serializationClass == Short.class || serializationClass == Byte.class ||
-            serializationClass == long.class || serializationClass == int.class || serializationClass == short.class || serializationClass == byte.class;
-    }
-
-    private static Class<?> getSerializationClass(Class<?> type, FlatType flatTypeAnnotation) {
-        if (flatTypeAnnotation == null) return type;
-
-        SerializeType flatType = flatTypeAnnotation.value();
-        return flatType.getSerializationClass();
-    }
-
-    private static boolean isBoolean(Class<?> primiviteClass) {
-        return primiviteClass == Boolean.class || primiviteClass == boolean.class;
-    }
-
-    private static boolean isByte(Class<?> primiviteClass) {
-        return primiviteClass == Byte.class || primiviteClass == byte.class;
-    }
-
-    private static boolean isShort(Class<?> primiviteClass) {
-        return primiviteClass == Short.class || primiviteClass == short.class;
-    }
-
-    private static boolean isInt(Class<?> primiviteClass) {
-        return primiviteClass == Integer.class || primiviteClass == int.class;
-    }
-
-    private static boolean isLong(Class<?> primiviteClass) {
-        return primiviteClass == Long.class || primiviteClass == long.class;
-    }
-
     public <T> T deserializeClass(Class<T> serializable) {
         T instance;
 
@@ -149,28 +103,21 @@ public class FlatLoader {
         }
     }
 
-    private Object getDefaultParameterValue(Parameter parameter) {
-        DefaultValue defaultValueAnnotation = parameter.getDeclaredAnnotation(DefaultValue.class);
-        if (defaultValueAnnotation == null) {
-            throw new IllegalStateException("Cannot set default value: Annotation " + DefaultValue.class.getSimpleName() + " is not set to parameter \"" + parameter + "\"");
-        }
-
-        Class<?> type = parameter.getType();
-        if (isLong(type)) {
-            return defaultValueAnnotation.longValue();
-        } else if (isInt(type)) {
-            return defaultValueAnnotation.intValue();
-        } else if (isShort(type)) {
-            return defaultValueAnnotation.shortValue();
-        } else if (isByte(type)) {
-            return defaultValueAnnotation.byteValue();
-        } else if (isBoolean(type)) {
-            return defaultValueAnnotation.booleanValue();
-        } else if (type == String.class) {
-            return defaultValueAnnotation.stringValue();
+    private static <T> Constructor<T> getSuitableRecordConstructor(Class<T> serializableRecord) {
+        Constructor<?>[] declaredConstructors = serializableRecord.getDeclaredConstructors();
+        for (Constructor<?> declaredConstructor : declaredConstructors) {
+            //noinspection unchecked
+            return (Constructor<T>) declaredConstructor;
         }
 
         return null;
+    }
+
+    private static Class<?> getSerializationClass(Class<?> type, FlatType flatTypeAnnotation) {
+        if (flatTypeAnnotation == null) return type;
+
+        SerializeType flatType = flatTypeAnnotation.value();
+        return flatType.getSerializationClass();
     }
 
     private boolean handleOffset(AnnotatedElement element, VTable vTable, int structureStartPosition, int structureSize) {
@@ -367,8 +314,72 @@ public class FlatLoader {
         } else if (isBoolean(primiviteClass)) {
             //noinspection unchecked
             return (T) (Boolean) stream.readBoolean();
+        } else if (primiviteClass == String.class) {
+            // Note: it seems string is always encoded as an offset to c-string with \0
+            int position = stream.tell();
+            int offset = deserializePrimitive(Integer.class);
+            int nextPosition = stream.tell();
+            stream.seek(position + offset);
+            String result = stream.readString();
+            stream.seek(nextPosition);
+
+            //noinspection unchecked
+            return (T) result;
         }
 
         throw new IllegalArgumentException("Provided type is not primitive! Provided class: " + primiviteClass.getSimpleName());
+    }
+
+    private static boolean isPrimitive(Class<?> serializationClass) {
+        return serializationClass.isPrimitive() || isPrimitiveNumber(serializationClass) || isBoolean(serializationClass) || serializationClass == String.class;
+    }
+
+    private static boolean isPrimitiveNumber(Class<?> serializationClass) {
+        return serializationClass == Long.class || serializationClass == Integer.class || serializationClass == Short.class || serializationClass == Byte.class ||
+            serializationClass == long.class || serializationClass == int.class || serializationClass == short.class || serializationClass == byte.class;
+    }
+
+    private static boolean isBoolean(Class<?> primiviteClass) {
+        return primiviteClass == Boolean.class || primiviteClass == boolean.class;
+    }
+
+    private static boolean isByte(Class<?> primiviteClass) {
+        return primiviteClass == Byte.class || primiviteClass == byte.class;
+    }
+
+    private static boolean isShort(Class<?> primiviteClass) {
+        return primiviteClass == Short.class || primiviteClass == short.class;
+    }
+
+    private static boolean isInt(Class<?> primiviteClass) {
+        return primiviteClass == Integer.class || primiviteClass == int.class;
+    }
+
+    private static boolean isLong(Class<?> primiviteClass) {
+        return primiviteClass == Long.class || primiviteClass == long.class;
+    }
+
+    private Object getDefaultParameterValue(Parameter parameter) {
+        DefaultValue defaultValueAnnotation = parameter.getDeclaredAnnotation(DefaultValue.class);
+        if (defaultValueAnnotation == null) {
+            throw new IllegalStateException("Cannot set default value: Annotation " + DefaultValue.class.getSimpleName() + " is not set to parameter \"" + parameter + "\"");
+        }
+
+        Class<?> type = parameter.getType();
+        if (isLong(type)) {
+            return defaultValueAnnotation.longValue();
+        } else if (isInt(type)) {
+            return defaultValueAnnotation.intValue();
+        } else if (isShort(type)) {
+            return defaultValueAnnotation.shortValue();
+        } else if (isByte(type)) {
+            return defaultValueAnnotation.byteValue();
+        } else if (isBoolean(type)) {
+            return defaultValueAnnotation.booleanValue();
+        } else if (type == String.class) {
+            return defaultValueAnnotation.stringValue();
+        }
+
+        return null;
     }
 }
