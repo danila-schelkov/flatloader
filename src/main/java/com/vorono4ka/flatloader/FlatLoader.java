@@ -314,6 +314,9 @@ public class FlatLoader {
         } else if (isBoolean(primiviteClass)) {
             //noinspection unchecked
             return (T) (Boolean) stream.readBoolean();
+        }  else if (isFloat(primiviteClass)) {
+            //noinspection unchecked
+            return (T) (Float) stream.readFloat();
         } else if (primiviteClass == String.class) {
             // Note: it seems string is always encoded as an offset to c-string with \0
             int position = stream.tell();
@@ -331,7 +334,7 @@ public class FlatLoader {
     }
 
     private static boolean isPrimitive(Class<?> serializationClass) {
-        return serializationClass.isPrimitive() || isPrimitiveNumber(serializationClass) || isBoolean(serializationClass) || serializationClass == String.class;
+        return serializationClass.isPrimitive() || isPrimitiveNumber(serializationClass) || isFloat(serializationClass) || isBoolean(serializationClass) || serializationClass == String.class;
     }
 
     private static boolean isPrimitiveNumber(Class<?> serializationClass) {
@@ -355,6 +358,10 @@ public class FlatLoader {
         return primiviteClass == Integer.class || primiviteClass == int.class;
     }
 
+    private static boolean isFloat(Class<?> primiviteClass) {
+        return primiviteClass == Float.class || primiviteClass == float.class;
+    }
+
     private static boolean isLong(Class<?> primiviteClass) {
         return primiviteClass == Long.class || primiviteClass == long.class;
     }
@@ -376,6 +383,8 @@ public class FlatLoader {
             return defaultValueAnnotation.byteValue();
         } else if (isBoolean(type)) {
             return defaultValueAnnotation.booleanValue();
+        } else if (isFloat(type)) {
+            return defaultValueAnnotation.floatValue();
         } else if (type == String.class) {
             return defaultValueAnnotation.stringValue();
         }

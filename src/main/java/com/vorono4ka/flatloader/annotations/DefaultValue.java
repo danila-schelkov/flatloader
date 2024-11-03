@@ -16,6 +16,8 @@ public @interface DefaultValue {
 
     byte byteValue() default 0;
 
+    float floatValue() default 0;
+
     boolean booleanValue() default false;
 
     String stringValue() default "";
