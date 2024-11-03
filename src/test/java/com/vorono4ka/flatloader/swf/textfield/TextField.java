@@ -1,4 +1,4 @@
-package com.vorono4ka.flatloader.swf;
+package com.vorono4ka.flatloader.swf.textfield;
 
 import com.vorono4ka.flatloader.annotations.Offset;
 import com.vorono4ka.flatloader.annotations.StructureSize;

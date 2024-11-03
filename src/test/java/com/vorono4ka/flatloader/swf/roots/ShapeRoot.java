@@ -3,7 +3,7 @@ package com.vorono4ka.flatloader.swf.roots;
 import com.vorono4ka.flatloader.annotations.FlatReference;
 import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;
-import com.vorono4ka.flatloader.swf.Shape;
+import com.vorono4ka.flatloader.swf.shape.Shape;
 
 import java.util.ArrayList;
 

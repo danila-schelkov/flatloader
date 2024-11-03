@@ -1,4 +1,4 @@
-package com.vorono4ka.flatloader.swf;
+package com.vorono4ka.flatloader.swf.texture;
 
 import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;

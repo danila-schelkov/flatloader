@@ -1,4 +1,4 @@
-package com.vorono4ka.flatloader.swf;
+package com.vorono4ka.flatloader.swf.shape;
 
 import com.vorono4ka.flatloader.annotations.FlatReference;
 import com.vorono4ka.flatloader.annotations.VTableClass;
@@ -7,11 +7,9 @@ import com.vorono4ka.flatloader.annotations.VTableField;
 import java.util.ArrayList;
 
 @VTableClass
-public class ScMatrixBank {
-    @FlatReference
+public class Shape {
     @VTableField(0)
-    private ArrayList<Matrix2x3> matrices;
-    @FlatReference
+    private short id;
     @VTableField(1)
-    private ArrayList<ColorTransform> colorTransforms;
+    private @FlatReference ArrayList<ShapeDrawBitmapCommand> commands;
 }

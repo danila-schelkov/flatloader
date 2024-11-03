@@ -1,4 +1,4 @@
-package com.vorono4ka.flatloader.swf;
+package com.vorono4ka.flatloader.swf.matrix;
 
 public class ColorTransform {
     private byte redAddition;
