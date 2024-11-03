@@ -21,30 +21,80 @@ public class FlatLoader {
         this.stream = stream;
     }
 
-    public <T> T deserializeClass(Class<T> serializableClass) {
-        T instance;
-
-        VTable vTable = null;
-        VTableClass vTableClass = serializableClass.getAnnotation(VTableClass.class);
-        if (vTableClass != null) {
-            vTable = deserializeRootTable();
+    private static <T> Constructor<T> getSuitableRecordConstructor(Class<T> serializableRecord) {
+        Constructor<?>[] declaredConstructors = serializableRecord.getDeclaredConstructors();
+        for (Constructor<?> declaredConstructor : declaredConstructors) {
+            //noinspection unchecked
+            return (Constructor<T>) declaredConstructor;
         }
 
-        System.out.println(vTable);
+        return null;
+    }
+
+    private static boolean isPrimitive(Class<?> serializationClass) {
+        return serializationClass.isPrimitive() || isPrimitiveNumber(serializationClass) || serializationClass == Boolean.class;
+    }
+
+    private static boolean isPrimitiveNumber(Class<?> serializationClass) {
+        return serializationClass == Long.class || serializationClass == Integer.class || serializationClass == Short.class || serializationClass == Byte.class ||
+            serializationClass == long.class || serializationClass == int.class || serializationClass == short.class || serializationClass == byte.class;
+    }
+
+    private static Class<?> getSerializationClass(Class<?> type, FlatType flatTypeAnnotation) {
+        if (flatTypeAnnotation == null) return type;
+
+        SerializeType flatType = flatTypeAnnotation.value();
+        return flatType.getSerializationClass();
+    }
+
+    private static boolean isBoolean(Class<?> primiviteClass) {
+        return primiviteClass == Boolean.class || primiviteClass == boolean.class;
+    }
+
+    private static boolean isByte(Class<?> primiviteClass) {
+        return primiviteClass == Byte.class || primiviteClass == byte.class;
+    }
+
+    private static boolean isShort(Class<?> primiviteClass) {
+        return primiviteClass == Short.class || primiviteClass == short.class;
+    }
+
+    private static boolean isInt(Class<?> primiviteClass) {
+        return primiviteClass == Integer.class || primiviteClass == int.class;
+    }
+
+    private static boolean isLong(Class<?> primiviteClass) {
+        return primiviteClass == Long.class || primiviteClass == long.class;
+    }
+
+    public <T> T deserializeClass(Class<T> serializable) {
+        T instance;
+
+        int structureSize = 0;
+        VTable vTable = null;
+        VTableClass vTableClass = serializable.getAnnotation(VTableClass.class);
+        if (vTableClass != null) {
+            vTable = deserializeRootTable();
+        } else {
+            StructureSize structureSizeAnnotation = serializable.getAnnotation(StructureSize.class);
+            if (structureSizeAnnotation != null) {
+                structureSize = structureSizeAnnotation.value();
+            }
+        }
 
         try {
-            instance = serializableClass.getDeclaredConstructor().newInstance();
-            for (Field declaredField : instance.getClass().getDeclaredFields()) {
-                if (vTable != null) {
-                    VTableField vTableField = declaredField.getDeclaredAnnotation(VTableField.class);
-                    short fieldOffset = vTable.getFieldOffset(vTableField.value());
-                    if (fieldOffset <= 0) {  // Value is not present in this table
-                        continue;
-                    }
+            int structureStartPosition = stream.tell();
 
-                    stream.seek(vTable.position() + fieldOffset);
-                }
+            instance = serializable.getDeclaredConstructor().newInstance();
+            for (Field declaredField : instance.getClass().getDeclaredFields()) {
+                if (handleOffset(declaredField, vTable, structureStartPosition, structureSize))
+                    continue;
+
                 handleField(instance, declaredField);
+            }
+
+            if (structureSize != 0) {
+                stream.seek(structureStartPosition + structureSize);
             }
         } catch (InstantiationException | IllegalAccessException |
                  NoSuchMethodException | InvocationTargetException e) {
@@ -54,18 +104,41 @@ public class FlatLoader {
         return instance;
     }
 
-    public <T> T deserializeRecord(Class<T> serializableRecord) {
-        Constructor<T> suitableRecordConstructor = getSuitableRecordConstructor(serializableRecord);
+    public <T> T deserializeRecord(Class<T> serializable) {
+        Constructor<T> suitableRecordConstructor = getSuitableRecordConstructor(serializable);
         if (suitableRecordConstructor == null) {
-            throw new IllegalStateException("Cannot find suitable constructor for record: " + serializableRecord.getSimpleName());
+            throw new IllegalStateException("Cannot find suitable constructor for record: " + serializable.getSimpleName());
+        }
+
+        int structureSize = 0;
+        VTable vTable = null;
+        VTableClass vTableClass = serializable.getAnnotation(VTableClass.class);
+        if (vTableClass != null) {
+            vTable = deserializeRootTable();
+        } else {
+            StructureSize structureSizeAnnotation = serializable.getAnnotation(StructureSize.class);
+            if (structureSizeAnnotation != null) {
+                structureSize = structureSizeAnnotation.value();
+            }
         }
 
         int parameterCount = suitableRecordConstructor.getParameterCount();
 
+        int structureStartPosition = stream.tell();
+
         int i = 0;
         Object[] parameters = new Object[parameterCount];
         for (Parameter parameter : suitableRecordConstructor.getParameters()) {
+            if (handleOffset(parameter, vTable, structureStartPosition, structureSize)) {
+                parameters[i++] = getDefaultParameterValue(parameter);
+                continue;
+            }
+
             parameters[i++] = deserializeParameter(parameter);
+        }
+
+        if (structureSize != 0) {
+            stream.seek(structureStartPosition + structureSize);
         }
 
         try {
@@ -76,14 +149,53 @@ public class FlatLoader {
         }
     }
 
-    private static <T> Constructor<T> getSuitableRecordConstructor(Class<T> serializableRecord) {
-        Constructor<?>[] declaredConstructors = serializableRecord.getDeclaredConstructors();
-        for (Constructor<?> declaredConstructor : declaredConstructors) {
-            //noinspection unchecked
-            return (Constructor<T>) declaredConstructor;
+    private Object getDefaultParameterValue(Parameter parameter) {
+        DefaultValue defaultValueAnnotation = parameter.getDeclaredAnnotation(DefaultValue.class);
+        if (defaultValueAnnotation == null) {
+            throw new IllegalStateException("Cannot set default value: Annotation " + DefaultValue.class.getSimpleName() + " is not set to parameter \"" + parameter + "\"");
+        }
+
+        Class<?> type = parameter.getType();
+        if (isLong(type)) {
+            return defaultValueAnnotation.longValue();
+        } else if (isInt(type)) {
+            return defaultValueAnnotation.intValue();
+        } else if (isShort(type)) {
+            return defaultValueAnnotation.shortValue();
+        } else if (isByte(type)) {
+            return defaultValueAnnotation.byteValue();
+        } else if (isBoolean(type)) {
+            return defaultValueAnnotation.booleanValue();
+        } else if (type == String.class) {
+            return defaultValueAnnotation.stringValue();
         }
 
         return null;
+    }
+
+    private boolean handleOffset(AnnotatedElement element, VTable vTable, int structureStartPosition, int structureSize) {
+        if (vTable != null) {
+            VTableField vTableField = element.getDeclaredAnnotation(VTableField.class);
+            if (vTableField == null) {
+                throw new IllegalArgumentException("Given element is not annotated with " + VTableField.class.getSimpleName() + ": " + element);
+            }
+
+            short fieldOffset = vTable.getFieldOffset(vTableField.value());
+            if (fieldOffset <= 0) {  // Value is not present in this table
+                return true;
+            }
+
+            stream.seek(vTable.position() + fieldOffset);
+        } else if (structureSize != 0) {
+            Offset offsetAnnotation = element.getDeclaredAnnotation(Offset.class);
+            if (offsetAnnotation == null) {
+                return true;
+            }
+
+            stream.seek(structureStartPosition + offsetAnnotation.value());
+        }
+
+        return false;
     }
 
     private <T> void handleField(T instance, Field declaredField) throws IllegalAccessException {
@@ -187,17 +299,6 @@ public class FlatLoader {
         return (T) deserializeClass(type);
     }
 
-    private static boolean isPrimitive(Class<?> serializationClass) {
-        return serializationClass.isPrimitive() || serializationClass == Long.class || serializationClass == Integer.class || serializationClass == Short.class || serializationClass == Byte.class || serializationClass == Boolean.class;
-    }
-
-    private static Class<?> getSerializationClass(Class<?> type, FlatType flatTypeAnnotation) {
-        if (flatTypeAnnotation == null) return type;
-
-        SerializeType flatType = flatTypeAnnotation.value();
-        return flatType.getSerializationClass();
-    }
-
     private List<?> deserializeCollection(Type type, Class<?> aClass) {
         ParameterizedType listType = (ParameterizedType) type;
         Class<?> listElementClass = (Class<?>) listType.getActualTypeArguments()[0];
@@ -251,19 +352,19 @@ public class FlatLoader {
     }
 
     private <T> T deserializePrimitive(Class<?> primiviteClass) {
-        if (primiviteClass == Long.class || primiviteClass == long.class) {
+        if (isLong(primiviteClass)) {
             //noinspection unchecked
             return (T) (Long) stream.readInt64();
-        } else if (primiviteClass == Integer.class || primiviteClass == int.class) {
+        } else if (isInt(primiviteClass)) {
             //noinspection unchecked
             return (T) (Integer) stream.readInt32();
-        } else if (primiviteClass == Short.class || primiviteClass == short.class) {
+        } else if (isShort(primiviteClass)) {
             //noinspection unchecked
             return (T) (Short) stream.readInt16();
-        } else if (primiviteClass == Byte.class || primiviteClass == byte.class) {
+        } else if (isByte(primiviteClass)) {
             //noinspection unchecked
             return (T) (Byte) stream.readInt8();
-        } else if (primiviteClass == Boolean.class || primiviteClass == boolean.class) {
+        } else if (isBoolean(primiviteClass)) {
             //noinspection unchecked
             return (T) (Boolean) stream.readBoolean();
         }
