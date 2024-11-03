@@ -10,7 +10,6 @@ import java.util.ArrayList;
 public class Shape {
     @VTableField(0)
     private short id;
-    @FlatReference
     @VTableField(1)
-    private ArrayList<ShapeDrawBitmapCommand> commands;
+    private @FlatReference ArrayList<ShapeDrawBitmapCommand> commands;
 }

@@ -1,4 +1,15 @@
 package com.vorono4ka.flatloader.swf.roots;
 
+import com.vorono4ka.flatloader.annotations.FlatReference;
+import com.vorono4ka.flatloader.annotations.VTableClass;
+import com.vorono4ka.flatloader.annotations.VTableField;
+import com.vorono4ka.flatloader.swf.MovieClip;
+import com.vorono4ka.flatloader.swf.Shape;
+
+import java.util.ArrayList;
+
+@VTableClass
 public class MovieClipRoot {
+    @VTableField(0)
+    private @FlatReference ArrayList<MovieClip> movieClips;
 }
