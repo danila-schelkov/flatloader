@@ -1,14 +1,16 @@
-package com.vorono4ka.flatloader.swf.roots;
+package com.vorono4ka.flatloader.swf;
 
 import com.vorono4ka.flatloader.annotations.FlatReference;
 import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;
-import com.vorono4ka.flatloader.swf.Shape;
 
 import java.util.ArrayList;
 
 @VTableClass
-public class ShapeRoot {
+public class Shape {
     @VTableField(0)
-    private @FlatReference ArrayList<Shape> shapes;
+    private short id;
+    @FlatReference
+    @VTableField(1)
+    private ArrayList<ShapeDrawBitmapCommand> commands;
 }
