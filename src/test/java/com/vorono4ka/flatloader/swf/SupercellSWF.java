@@ -3,7 +3,6 @@ package com.vorono4ka.flatloader.swf;
 import com.vorono4ka.flatloader.annotations.FlatChunk;
 import com.vorono4ka.flatloader.swf.roots.*;
 
-//@FlatSerializable
 public class SupercellSWF {
     @FlatChunk
     private ResourceRoot resourceRoot;

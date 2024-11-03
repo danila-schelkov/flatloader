@@ -88,6 +88,25 @@ public class ByteStream {
         this.write((byte) ((value >> 24) & 0xFF));
     }
 
+    public void writeInt64(long value) {
+        this.ensureCapacity(8);
+
+        this.write((byte) (value & 0xFF));
+        this.write((byte) ((value >> 8) & 0xFF));
+        this.write((byte) ((value >> 16) & 0xFF));
+        this.write((byte) ((value >> 24) & 0xFF));
+        this.write((byte) ((value >> 32) & 0xFF));
+        this.write((byte) ((value >> 40) & 0xFF));
+        this.write((byte) ((value >> 48) & 0xFF));
+        this.write((byte) ((value >> 56) & 0xFF));
+    }
+
+    public void writeFloat(float value) {
+        this.ensureCapacity(4);
+
+        this.writeInt32(Float.floatToIntBits(value));
+    }
+
     public void writeBoolean(boolean value) {
         this.writeInt8(value ? 1 : 0);
     }
@@ -106,6 +125,10 @@ public class ByteStream {
 
     public long readInt64() {
         return (this.readInt8() & 0xFF) | (long) (this.readInt8() & 0xFF) << 8 | (long) (this.readInt8() & 0xFF) << 16 | (long) (this.readInt8() & 0xFF) << 24 | (long) (this.readInt8() & 0xFF) << 32 | (long) (this.readInt8() & 0xFF) << 40 | (long) (this.readInt8() & 0xFF) << 48 | (long) (this.readInt8() & 0xFF) << 56;
+    }
+
+    public float readFloat() {
+        return Float.intBitsToFloat(readInt32());
     }
 
     public boolean readBoolean() {

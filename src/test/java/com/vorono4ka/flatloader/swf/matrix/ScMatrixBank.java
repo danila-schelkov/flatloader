@@ -1,14 +1,17 @@
-package com.vorono4ka.flatloader.swf.roots;
+package com.vorono4ka.flatloader.swf.matrix;
 
 import com.vorono4ka.flatloader.annotations.FlatReference;
 import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;
-import com.vorono4ka.flatloader.swf.textfield.TextField;
 
 import java.util.ArrayList;
 
 @VTableClass
-public class TextFieldRoot {
+public class ScMatrixBank {
+    @FlatReference
     @VTableField(0)
-    private @FlatReference ArrayList<TextField> textFields;
+    private ArrayList<Matrix2x3> matrices;
+    @FlatReference
+    @VTableField(1)
+    private ArrayList<ColorTransform> colorTransforms;
 }
