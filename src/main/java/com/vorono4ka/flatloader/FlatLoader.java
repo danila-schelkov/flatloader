@@ -217,6 +217,8 @@ public class FlatLoader {
             Object object;
             if (listElementClass.isRecord()) {
                 object = deserializeRecord(listElementClass);
+            } else if (isPrimitive(listElementClass)) {
+                object = deserializePrimitive(listElementClass);
             } else {
                 object = deserializeClass(listElementClass);
             }
