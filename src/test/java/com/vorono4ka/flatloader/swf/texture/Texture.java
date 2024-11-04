@@ -14,7 +14,7 @@ public class Texture {
     @VTableField(3)
     private short height;
     @VTableField(4)
-    private int byteArrayPtr;
+    private Byte[] byteArrayPtr;
     @VTableField(5)
     private int textureFilenameId;
 }

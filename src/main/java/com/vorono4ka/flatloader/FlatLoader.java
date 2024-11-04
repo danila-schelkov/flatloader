@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 public class FlatLoader {
@@ -249,13 +251,79 @@ public class FlatLoader {
             return (T) deserializeRecord(type);
         }
 
+        if (type.isArray()) {
+            //noinspection unchecked
+            return (T) deserializeAsReference(
+                int.class,
+                () -> deserializeArray(type, annotatedElement)
+            );
+        }
+
         //noinspection unchecked
         return (T) deserializeClass(type);
     }
 
+    private <T> T[] deserializeArray(Class<?> aClass, AnnotatedElement annotatedElement) {
+        int count = stream.readInt32();
+
+        CustomStructureSize customStructureSize = annotatedElement.getDeclaredAnnotation(CustomStructureSize.class);
+        if (customStructureSize != null) {
+            count /= customStructureSize.value();
+        }
+
+        //noinspection unchecked
+        Class<T> componentType = (Class<T>) aClass.getComponentType();
+
+        if (isPrimitiveNumber(componentType)) {
+            return deserializeNumberArray(componentType, count);
+        } else if (componentType == Object.class) {
+            //noinspection unchecked
+            return (T[]) deserializeArray0(Object.class, count, Object[]::new);
+        }
+
+        throw new IllegalStateException("Unfortunately, arrays of " + componentType.getSimpleName() + " aren't supported yet.");
+    }
+
+    private <T> T[] deserializeNumberArray(Class<T> componentType, int count) {
+        if (isLong(componentType)) {
+            //noinspection unchecked
+            return (T[]) deserializeArray0(long.class, count, Long[]::new);
+        } else if (isInt(componentType)) {
+            //noinspection unchecked
+            return (T[]) deserializeArray0(int.class, count, Integer[]::new);
+        } else if (isShort(componentType)) {
+            //noinspection unchecked
+            return (T[]) deserializeArray0(short.class, count, Short[]::new);
+        } else if (isByte(componentType)) {
+            //noinspection unchecked
+            return (T[]) deserializeArray0(byte.class, count, Byte[]::new);
+        }
+
+        throw new IllegalArgumentException("Unknown number type: " + componentType.getSimpleName());
+    }
+
+    private <T> T[] deserializeArray0(Class<T> componentType, int count, IntFunction<T[]> generator) {
+        T[] array = generator.apply(count);
+
+        Function<Class<T>, T> deserializer;
+        if (componentType.isRecord()) {
+            deserializer = this::deserializeRecord;
+        } else if (isPrimitive(componentType)) {
+            deserializer = this::deserializePrimitive;
+        } else {
+            deserializer = this::deserializeClass;
+        }
+
+        for (int i = 0; i < count; i++) {
+            array[i] = deserializer.apply(componentType);
+        }
+
+        return array;
+    }
+
     private List<?> deserializeCollection(Type type, Class<?> aClass, AnnotatedElement annotatedElement) {
         ParameterizedType listType = (ParameterizedType) type;
-        Class<?> listElementClass = (Class<?>) listType.getActualTypeArguments()[0];
+        Class<?> componentType = (Class<?>) listType.getActualTypeArguments()[0];
 
         List<Object> list;
         try {
@@ -273,17 +341,17 @@ public class FlatLoader {
             count /= customStructureSize.value();
         }
 
-        for (int i = 0; i < count; i++) {
-            Object object;
-            if (listElementClass.isRecord()) {
-                object = deserializeRecord(listElementClass);
-            } else if (isPrimitive(listElementClass)) {
-                object = deserializePrimitive(listElementClass);
-            } else {
-                object = deserializeClass(listElementClass);
-            }
+        Function<Class<?>, Object> deserializer;
+        if (componentType.isRecord()) {
+            deserializer = this::deserializeRecord;
+        } else if (isPrimitive(componentType)) {
+            deserializer = this::deserializePrimitive;
+        } else {
+            deserializer = this::deserializeClass;
+        }
 
-            list.add(object);
+        for (int i = 0; i < count; i++) {
+            list.add(deserializer.apply(componentType));
         }
 
         return list;
