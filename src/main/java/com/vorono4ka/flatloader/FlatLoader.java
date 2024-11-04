@@ -41,11 +41,15 @@ public class FlatLoader {
             int structureStartPosition = stream.tell();
 
             instance = serializable.getDeclaredConstructor().newInstance();
-            for (Field declaredField : instance.getClass().getDeclaredFields()) {
-                if (handleOffset(declaredField, vTable, structureStartPosition, structureSize))
+            for (Field field : instance.getClass().getDeclaredFields()) {
+                int modifiers = field.getModifiers();
+                if (Modifier.isStatic(modifiers)) continue;
+                if (Modifier.isTransient(modifiers)) continue;
+
+                if (handleOffset(field, vTable, structureStartPosition, structureSize))
                     continue;
 
-                handleField(instance, declaredField);
+                handleField(instance, field);
             }
 
             if (vTable != null || structureSize != 0) {
@@ -139,21 +143,17 @@ public class FlatLoader {
         return false;
     }
 
-    private <T> void handleField(T instance, Field declaredField) throws IllegalAccessException {
-        int modifiers = declaredField.getModifiers();
-        if (Modifier.isStatic(modifiers)) return;
-        if (Modifier.isTransient(modifiers)) return;
-
-        boolean accessChanged = !declaredField.canAccess(instance);
+    private <T> void handleField(T instance, Field field) throws IllegalAccessException {
+        boolean accessChanged = !field.canAccess(instance);
         if (accessChanged) {
-            declaredField.setAccessible(true);
+            field.setAccessible(true);
         }
 
-        Object value = deserializeField(declaredField);
-        declaredField.set(instance, value);
+        Object value = deserializeField(field);
+        field.set(instance, value);
 
         if (accessChanged) {
-            declaredField.setAccessible(false);
+            field.setAccessible(false);
         }
     }
 
