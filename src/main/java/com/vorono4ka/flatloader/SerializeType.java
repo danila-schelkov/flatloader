@@ -1,16 +1,12 @@
 package com.vorono4ka.flatloader;
 
 public enum SerializeType {
-    INT8(Byte.class),
-    INT16(Short.class),
-    INT32(Integer.class),
-    INT64(Long.class),
-    UNSIGNED_INT8(Byte.class),
-    UNSIGNED_INT16(Short.class),
-    UNSIGNED_INT32(Integer.class),
+    INT8(byte.class),
+    INT16(short.class),
+    INT32(int.class),
+    INT64(long.class),
     STRING(String.class),
-    STRING_REFERENCE(Integer.class),
-    ;
+    STRING_REFERENCE(int.class);
 
     private final Class<?> serializationClass;
 

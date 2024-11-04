@@ -11,4 +11,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface FlatType {
     SerializeType value();
+    boolean isUnsigned() default false;
 }
