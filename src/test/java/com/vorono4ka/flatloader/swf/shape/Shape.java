@@ -1,6 +1,5 @@
 package com.vorono4ka.flatloader.swf.shape;
 
-import com.vorono4ka.flatloader.annotations.FlatReference;
 import com.vorono4ka.flatloader.annotations.VTableClass;
 import com.vorono4ka.flatloader.annotations.VTableField;
 
@@ -11,5 +10,5 @@ public class Shape {
     @VTableField(0)
     private short id;
     @VTableField(1)
-    private @FlatReference ArrayList<ShapeDrawBitmapCommand> commands;
+    private ArrayList<ShapeDrawBitmapCommand> commands;
 }
