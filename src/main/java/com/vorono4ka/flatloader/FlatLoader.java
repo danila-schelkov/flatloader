@@ -114,14 +114,6 @@ public class FlatLoader {
         return null;
     }
 
-    private static Class<?> getSerializationClass(Class<?> type, AnnotatedElement annotatedElement) {
-        FlatType flatTypeAnnotation = annotatedElement.getDeclaredAnnotation(FlatType.class);
-        if (flatTypeAnnotation == null) return type;
-
-        SerializeType flatType = flatTypeAnnotation.value();
-        return flatType.getSerializationClass();
-    }
-
     private boolean handleOffset(AnnotatedElement element, VTable vTable, int structureStartPosition, int structureSize) {
         if (vTable != null) {
             VTableField vTableField = element.getDeclaredAnnotation(VTableField.class);
@@ -193,7 +185,7 @@ public class FlatLoader {
     private <T> T deserializeField0(Field field, Class<?> type) {
         if (type.isAssignableFrom(ArrayList.class)) {
             List<?> objects = deserializeAsReference(
-                Integer.class,
+                int.class,
                 () -> deserializeCollection(field.getGenericType(), field.getType(), field)
             );
             //noinspection unchecked
@@ -223,7 +215,7 @@ public class FlatLoader {
         if (type.isAssignableFrom(ArrayList.class)) {
             //noinspection unchecked
             return (T) deserializeAsReference(
-                Integer.class,
+                int.class,
                 () -> deserializeCollection(type, type, parameter)
             );
         }
@@ -232,9 +224,19 @@ public class FlatLoader {
     }
 
     private <T> T deserializeByType(Class<?> type, AnnotatedElement annotatedElement) {
-        Class<?> serializationClass = getSerializationClass(type, annotatedElement);
-        if (isPrimitive(serializationClass)) {
+        FlatType flatTypeAnnotation = annotatedElement.getDeclaredAnnotation(FlatType.class);
+        if (flatTypeAnnotation != null) {
+            Class<?> serializationClass = flatTypeAnnotation.value().getSerializationClass();
+
+            if (isPrimitiveNumber(serializationClass) && flatTypeAnnotation.isUnsigned()) {
+                return deserializeUnsignedNumber(serializationClass);
+            }
+
             return deserializePrimitive(serializationClass);
+        }
+
+        if (isPrimitive(type)) {
+            return deserializePrimitive(type);
         }
 
         if (type == VTable.class) {
@@ -351,6 +353,21 @@ public class FlatLoader {
         }
 
         throw new IllegalArgumentException("Provided type is not primitive! Provided class: " + primiviteClass.getSimpleName());
+    }
+
+    private <T> T deserializeUnsignedNumber(Class<?> primiviteClass) {
+        if (isInt(primiviteClass)) {
+            //noinspection unchecked
+            return (T) (Long) (stream.readInt32() & 0xFFFFFFFFL);
+        } else if (isShort(primiviteClass)) {
+            //noinspection unchecked
+            return (T) (Integer) (stream.readInt16() & 0xFFFF);
+        } else if (isByte(primiviteClass)) {
+            //noinspection unchecked
+            return (T) (Integer) (stream.readInt8() & 0xFF);
+        }
+
+        throw new IllegalArgumentException("Provided type is not primitive number! Provided class: " + primiviteClass.getSimpleName());
     }
 
     private static boolean isPrimitive(Class<?> serializationClass) {

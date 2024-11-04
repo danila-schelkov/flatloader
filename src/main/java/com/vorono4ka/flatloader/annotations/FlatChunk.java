@@ -10,5 +10,5 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface FlatChunk {
-    SerializeType countType() default SerializeType.UNSIGNED_INT32;
+    SerializeType countType() default SerializeType.INT32;
 }
