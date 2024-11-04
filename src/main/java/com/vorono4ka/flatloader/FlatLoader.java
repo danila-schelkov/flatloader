@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class FlatLoader {
     private final FlatByteStream stream;
@@ -113,7 +114,8 @@ public class FlatLoader {
         return null;
     }
 
-    private static Class<?> getSerializationClass(Class<?> type, FlatType flatTypeAnnotation) {
+    private static Class<?> getSerializationClass(Class<?> type, AnnotatedElement annotatedElement) {
+        FlatType flatTypeAnnotation = annotatedElement.getDeclaredAnnotation(FlatType.class);
         if (flatTypeAnnotation == null) return type;
 
         SerializeType flatType = flatTypeAnnotation.value();
@@ -177,13 +179,12 @@ public class FlatLoader {
 
         FlatReference flatReference = field.getDeclaredAnnotation(FlatReference.class);
         if (flatReference != null) {
-            int position = stream.tell();
-            int offset = deserializePrimitive(flatReference.value().getSerializationClass());
-            int nextPosition = stream.tell();
-            stream.seek(position + offset);
-            T result = deserializeField0(field, type);
-            stream.seek(nextPosition);
-            return result;
+            Class<?> offsetSerializationClass = flatReference.value().getSerializationClass();
+
+            return deserializeAsReference(
+                offsetSerializationClass,
+                () -> deserializeField0(field, type)
+            );
         }
 
         return deserializeField0(field, type);
@@ -191,11 +192,15 @@ public class FlatLoader {
 
     private <T> T deserializeField0(Field field, Class<?> type) {
         if (type.isAssignableFrom(ArrayList.class)) {
+            List<?> objects = deserializeAsReference(
+                Integer.class,
+                () -> deserializeCollection(field.getGenericType(), field.getType(), field)
+            );
             //noinspection unchecked
-            return (T) deserializeCollection(field.getGenericType(), field.getType(), field.getDeclaredAnnotation(CustomStructureSize.class));
+            return (T) objects;
         }
 
-        return deserializeByType(type, field.getDeclaredAnnotation(FlatType.class));
+        return deserializeByType(type, field);
     }
 
     private <T> T deserializeParameter(Parameter parameter) {
@@ -203,13 +208,12 @@ public class FlatLoader {
 
         FlatReference flatReference = parameter.getDeclaredAnnotation(FlatReference.class);
         if (flatReference != null) {
-            int position = stream.tell();
-            int offset = deserializePrimitive(flatReference.value().getSerializationClass());
-            int nextPosition = stream.tell();
-            stream.seek(position + offset);
-            T result = deserializeParameter0(parameter, type);
-            stream.seek(nextPosition);
-            return result;
+            Class<?> offsetSerializationClass = flatReference.value().getSerializationClass();
+
+            return deserializeAsReference(
+                offsetSerializationClass,
+                () -> deserializeParameter0(parameter, type)
+            );
         }
 
         return deserializeParameter0(parameter, type);
@@ -218,14 +222,17 @@ public class FlatLoader {
     private <T> T deserializeParameter0(Parameter parameter, Class<?> type) {
         if (type.isAssignableFrom(ArrayList.class)) {
             //noinspection unchecked
-            return (T) deserializeCollection(type, type, parameter.getDeclaredAnnotation(CustomStructureSize.class));
+            return (T) deserializeAsReference(
+                Integer.class,
+                () -> deserializeCollection(type, type, parameter)
+            );
         }
 
-        return deserializeByType(type, parameter.getDeclaredAnnotation(FlatType.class));
+        return deserializeByType(type, parameter);
     }
 
-    private <T> T deserializeByType(Class<?> type, FlatType flatTypeAnnotation) {
-        Class<?> serializationClass = getSerializationClass(type, flatTypeAnnotation);
+    private <T> T deserializeByType(Class<?> type, AnnotatedElement annotatedElement) {
+        Class<?> serializationClass = getSerializationClass(type, annotatedElement);
         if (isPrimitive(serializationClass)) {
             return deserializePrimitive(serializationClass);
         }
@@ -244,7 +251,7 @@ public class FlatLoader {
         return (T) deserializeClass(type);
     }
 
-    private List<?> deserializeCollection(Type type, Class<?> aClass, CustomStructureSize customStructureSize) {
+    private List<?> deserializeCollection(Type type, Class<?> aClass, AnnotatedElement annotatedElement) {
         ParameterizedType listType = (ParameterizedType) type;
         Class<?> listElementClass = (Class<?>) listType.getActualTypeArguments()[0];
 
@@ -258,6 +265,8 @@ public class FlatLoader {
         }
 
         int count = stream.readInt32();
+
+        CustomStructureSize customStructureSize = annotatedElement.getDeclaredAnnotation(CustomStructureSize.class);
         if (customStructureSize != null) {
             count /= customStructureSize.value();
         }
@@ -297,6 +306,16 @@ public class FlatLoader {
         int fieldCount = (vtableSize - 4) / 2;
         short[] fieldOffsets = stream.readInt16Array(fieldCount);
         return new VTable(position, dataSize, fieldOffsets);
+    }
+
+    private <T> T deserializeAsReference(Class<?> offsetSerializationClass, Supplier<T> deserializer) {
+        int position = stream.tell();
+        int offset = deserializePrimitive(offsetSerializationClass);
+        int nextPosition = stream.tell();
+        stream.seek(position + offset);
+        T result = deserializer.get();
+        stream.seek(nextPosition);
+        return result;
     }
 
     private <T> T deserializePrimitive(Class<?> primiviteClass) {
